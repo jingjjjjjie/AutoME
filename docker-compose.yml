@@ -1,0 +1,32 @@
+services:
+  autome:
+    build: .                    # see Dockerfile (pytorch base + jingjie user)
+    user: "1055:1055"           # non-root; matches host uid so scratch writes work
+    network_mode: host
+
+    # security
+    read_only: true             # container can't modify its own image/binaries
+    cap_drop:
+      - ALL                     # strip all Linux capabilities (no raw sockets, mounts, etc.)
+    security_opt:
+      - no-new-privileges:true  # prevent setuid binaries from re-gaining privileges
+
+    # resources
+    mem_limit: 2g               # hard memory cap
+    memswap_limit: 2g           # disables swap (swap = mem_limit means no extra swap)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]  # GPU index — change to "1", "2", etc.
+              capabilities: [gpu]
+
+    tmpfs:
+      - /tmp                    # writable in-memory scratch (needed because root fs is read-only)
+      # add /home/jingjie/.cache here when running real PyTorch/HuggingFace workloads
+    volumes:
+      - ./datasets:/data:ro     # dataset is read-only inside the container
+      - ./scratch:/scratch:rw   # only intentional output landing zone
+
+    command: sleep infinity     # keeps container alive; use `docker compose exec autome bash`
