@@ -1,0 +1,2 @@
+codex --ask-for-approval never --sandbox danger-full-access "program exp1"
+docker compose exec auto bash

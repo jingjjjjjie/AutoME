@@ -1,0 +1,19 @@
+{
+  "experiment_id": "002_0630",
+  "parent_id": "001_0630",
+  "start_time": "2026-06-30T05:32:46Z",
+  "status": "running",
+  "artifacts": {
+    "config_ref": "runs/exp1/002_0630/config.yaml",
+    "experiment_dir": "/mnt3/repo_and_weights/agent/exp1/002_0630"
+  },
+  "metrics": {},
+  "next_action": {
+    "type": "branch_experiment",
+    "reason": "Dataloader-stabilized baseline is in progress; next action will be determined after evaluation.",
+    "proposed_config": {
+      "base": "runs/exp1/002_0630/config.yaml",
+      "overrides": {}
+    }
+  }
+}

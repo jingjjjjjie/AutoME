@@ -1,0 +1,30 @@
+{
+  "experiment_id": "001_0630",
+  "parent_id": null,
+  "start_time": "2026-06-30T06:11:31Z",
+  "status": "running",
+  "artifacts": {
+    "config_ref": "runs/exp3/001_0630/config.yaml",
+    "experiment_dir": "/mnt3/repo_and_weights/agent/exp3/001_0630"
+  },
+  "cost": {},
+  "metrics": {},
+  "analysis": {
+    "summary": "Run in progress.",
+    "beats_current_best": false,
+    "potential": "high"
+  },
+  "next_action": {
+    "type": "branch_experiment",
+    "reason": "Run the first exp3 baseline with lower dataloader shared-memory pressure.",
+    "proposed_config": {
+      "base": "docs/base-config.yaml",
+      "overrides": {
+        "experiment.save_dir": "/mnt3/repo_and_weights/agent/exp3",
+        "experiment.save_name": "001_0630",
+        "dataloader.num_workers": 4,
+        "dataloader.prefetch_factor": 2
+      }
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoME runs.jsonl summary line",
+    "description": "One line per run in runs/{exp}/runs.jsonl. Pure projection of history.json — never write fields here that are not in the full record.",
+    "type": "object",
+    "additionalProperties": true,
+    "required": ["id", "ts", "st", "APCER", "BPCER", "best", "pot", "next"],
+    "properties": {
+        "id": {
+            "type": "string",
+            "pattern": "^\\d{3}_\\d{4}$",
+            "description": "NNN_MMDD — maps to history.json at runs/{exp}/{id}/"
+        },
+        "ts": {
+            "type": "string",
+            "format": "date-time",
+            "description": "finish_time from history.json"
+        },
+        "st": {
+            "type": "string",
+            "enum": ["running", "completed", "failed", "stopped_limit"],
+            "description": "status from history.json"
+        },
+        "APCER": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1,
+            "description": "metrics.evaluation_results.APCER; null on failed runs"
+        },
+        "BPCER": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1,
+            "description": "metrics.evaluation_results.BPCER; null on failed runs"
+        },
+        "best": {
+            "type": "boolean",
+            "description": "analysis.beats_current_best"
+        },
+        "pot": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "analysis.potential"
+        },
+        "parent_id": {
+            "type": ["string", "null"],
+            "pattern": "^\\d{3}_\\d{4}$",
+            "description": "history.parent_id — null for the first run in an experiment"
+        },
+        "next": {
+            "type": "string",
+            "enum": ["branch_experiment", "stop_branch"],
+            "description": "next_action.type from history.json"
+        },
+        "cost_s": {
+            "type": "integer",
+            "description": "cost.wall_time_sec from history.json"
+        },
+        "sub": {
+            "type": ["object", "null"],
+            "description": "per-subclass error rates (abbreviated keys); null on failed runs",
+            "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "lr": {
+            "type": "number",
+            "description": "training.learning_rate projected from config.yaml"
+        },
+        "wd": {
+            "type": "number",
+            "description": "training.weight_decay projected from config.yaml"
+        }
+    }
+}

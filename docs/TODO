@@ -1,0 +1,22 @@
+
+Assumption and reference space
+Refactor
+Hooks for the json validation
+Global Settings
+the correct mounts 
+the data splits
+"GET" specific parts from the history
+Base config template 
+Time constrain/epoch constrain - importand
+there is a issue , the agent keep polling when running experiment, i think is waste token 
+flush outputs 
+
+
+Hooks:
+AutoME/
+  .codex/
+    hooks.json
+    hooks/
+      pre_tool_use_policy.py
+      post_tool_use_review.py
+  GOAL.md

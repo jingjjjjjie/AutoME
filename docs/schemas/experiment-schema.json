@@ -1,0 +1,151 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoME Experiment History Record",
+    "description": "Schema for runs/{exp}/{id}/history.json. Add fields freely; never rename existing ones.",
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+        "experiment_id",
+        "start_time",
+        "status",
+        "artifacts",
+        "metrics",
+        "next_action"
+    ],
+    "properties": {
+        "experiment_id": {
+            "type": "string",
+            "pattern": "^\\d{3}_\\d{4}$",
+            "description": "NNN_MMDD — folder name under runs/{exp_name}/"
+        },
+        "parent_id": {
+            "type": ["string", "null"],
+            "pattern": "^\\d{3}_\\d{4}$",
+            "description": "experiment_id of the run this branched from; null for the first run"
+        },
+        "start_time": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "finish_time": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "status": {
+            "type": "string",
+            "enum": ["running", "completed", "failed", "stopped_limit"]
+        },
+        "artifacts": {
+            "type": "object",
+            "required": ["experiment_dir", "config_ref"],
+            "additionalProperties": true,
+            "properties": {
+                "experiment_dir":  { "type": "string" },
+                "checkpoint_path": { "type": "string" },
+                "config_ref":      { "type": "string" }
+            }
+        },
+        "cost": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "wall_time_sec": { "type": "number" },
+                "wall_time_min": { "type": "number" },
+                "per_epoch_sec": {
+                    "type": "array",
+                    "items": { "type": "number" }
+                },
+                "tokens_used": {
+                    "type": "object",
+                    "properties": {
+                        "prompt":      { "type": "integer" },
+                        "completion":  { "type": "integer" },
+                        "total":       { "type": "integer" },
+                        "cache_read":  { "type": "integer" },
+                        "cache_write": { "type": "integer" }
+                    }
+                }
+            }
+        },
+        "metrics": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "best_epoch": { "type": "integer" },
+                "validation_stats": {
+                    "type": "object",
+                    "properties": {
+                        "loss":     { "type": "number" },
+                        "accuracy": { "type": "number" }
+                    }
+                },
+                "validation_results": { "$ref": "#/$defs/threshold_metrics" },
+                "evaluation_results": { "$ref": "#/$defs/threshold_metrics" },
+                "per_subclass": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "required": ["n"],
+                        "properties": {
+                            "APCER": { "type": "number", "minimum": 0, "maximum": 1 },
+                            "BPCER": { "type": "number", "minimum": 0, "maximum": 1 },
+                            "n":     { "type": "integer", "minimum": 0 }
+                        }
+                    }
+                }
+            }
+        },
+        "analysis": {
+            "type": "object",
+            "required": ["summary", "beats_current_best"],
+            "additionalProperties": true,
+            "properties": {
+                "summary":            { "type": "string" },
+                "findings":           { "type": "array", "items": { "type": "string" } },
+                "hypothesis":         { "type": "string" },
+                "beats_current_best": { "type": "boolean" },
+                "delta_vs_best":      { "type": "number" },
+                "potential": {
+                    "type": "string",
+                    "enum": ["high", "medium", "low"]
+                },
+                "justification": { "type": "string" }
+            }
+        },
+        "next_action": {
+            "type": "object",
+            "required": ["type", "reason"],
+            "additionalProperties": true,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": ["branch_experiment", "stop_branch"]
+                },
+                "reason": { "type": "string" },
+                "proposed_config": {
+                    "oneOf": [
+                        { "type": "null" },
+                        {
+                            "type": "object",
+                            "required": ["base", "overrides"],
+                            "properties": {
+                                "base":      { "type": "string" },
+                                "overrides": { "type": "object" }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    "$defs": {
+        "threshold_metrics": {
+            "type": "object",
+            "properties": {
+                "Threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+                "APCER":     { "type": "number", "minimum": 0, "maximum": 1 },
+                "BPCER":     { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+        }
+    }
+}

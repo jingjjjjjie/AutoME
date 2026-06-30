@@ -1,0 +1,185 @@
+# AutoME Base Config Reference
+#
+# This is the annotated reference for every config key AutoTorch accepts.
+# The agent copies this (or an existing run's config.yaml) as proposed_config.base
+# and applies proposed_config.overrides on top — only the changed keys need to be
+# listed in overrides, everything else is inherited from the base.
+#
+# Format: OmegaConf YAML, loaded by AutoTorch/src/utils/config.py
+# Passed to training: torchrun AutoTorch/src/train.py --config <path>
+
+
+# ---------------------------------------------------------------------------
+# EXPERIMENT
+# run_dir is derived as:  save_dir / save_name
+# AutoTorch creates it automatically; AutoME also copies it into artifacts.experiment_dir
+#
+# save_dir  — FIXED for the lifetime of an experiment. Set once from EXPNAME (the argument
+#             passed to /goal) and never changed between runs.
+# save_name — set per-run by the agent to {NNN}_{MMDD}. Do not change save_dir.
+# ---------------------------------------------------------------------------
+experiment:
+  save_dir: /mnt3/repo_and_weights/agent/exp3   # substitute EXPNAME from /goal argument; never change mid-experiment
+  save_name: "001_0630"                               # per-run: {NNN}_{MMDD} — MUST be quoted; unquoted parses as octal integer in PyYAML
+
+  # description — agent fills this for every run. It is not used by training but is the
+  # permanent record of WHY this run exists. Write:
+  #   1. Hypothesis: what you expect this change to do and why
+  #   2. Reference: which prior run(s) this builds on and what they showed
+  #   3. Rationale: why this direction over alternatives available at this point
+  # Example: "Hypothesis: raising weight_decay 0→1e-4 with AdamW should reduce overfit on
+  # small subclasses (CP_col 0.91 in 001). Reference: 001_0629 showed Replay subclasses
+  # converged well but Colour Print remained high — suggests regularisation gap, not capacity."
+  description: "Hypothesis: the unireplknet_t + legacy_v1 + AdamW/plateau baseline should establish exp3 global and subclass behavior for ori single-model training. Reference: exp3 has no completed runs yet; prior-knowledge.md lists no known good configs, dead ends, or subclass patterns. A local exp1 baseline attempt showed the default dataloader concurrency can fail before metrics with shared-memory worker crashes, so this run keeps the model, loss, scheduler, data, transform, and optimizer at baseline while reducing dataloader pressure. Rationale: first obtain a valid baseline before testing regularisation, transforms, or backbone capacity."
+
+
+# ---------------------------------------------------------------------------
+# MODEL
+# ---------------------------------------------------------------------------
+model:
+  # --- Backbone ---
+  # DiNO v3 Vision Transformers (feature dim):
+  #   dinov3_vits16 (384)   dinov3_vits16plus (384)
+  #   dinov3_vitb16 (768)   dinov3_vitl16 (1024)   dinov3_vith16plus (1280)
+  #   dinov3_vit7b16 (4096) dinov3_convnext_tiny (768)  dinov3_convnext_small (768)
+  #   dinov3_convnext_base (1024)  dinov3_convnext_large (1536)
+  # UniRepLKNet (feature dim):
+  #   unireplknet_n (640)  unireplknet_p (512)  unireplknet_t (640)
+  #   unireplknet_s (768)  unireplknet_s_in22k (768)  unireplknet_b_in22k (1024)
+  # VAN — Visual Attention Network (feature dim):
+  #   van_b0 (256)  van_b1 (512)  van_b2 (512)  van_b3 (512)
+  backbone_name: unireplknet_t
+
+  freeze_backbone: false   # true = keep pretrained weights frozen, only train head
+
+  # --- Classification Head ---
+  # v1        : LayerNorm → Linear→128 → GELU → Dropout(0.2) → Linear→1
+  # legacy    : BN → Linear→128 → GELU → BN → Linear→64 → GELU → Linear→32 → GELU → Linear→1
+  # legacy_v1 : Dropout(0.5) → Linear→256 → ReLU → Dropout(0.5) → Linear→256 → ReLU → Linear→1 → Sigmoid
+  # legacy_v2 : Linear→256 → ReLU → Dropout(0.3) → Linear→256 → ReLU → Dropout(0.1) → Linear→1 → Sigmoid
+  head_type: legacy_v1
+
+  # logits  → use bce_with_logits loss (sigmoid fused into loss, numerically stable)
+  # probs   → use bce loss (head outputs probability in [0,1] directly)
+  output_type: probs
+
+  task: classification   # only supported value for now
+
+
+# ---------------------------------------------------------------------------
+# TRAINING
+# ---------------------------------------------------------------------------
+training:
+  batch_size: 16                  # per-GPU batch size
+  epochs: 30
+  learning_rate: 1.0e-04
+
+  # --- Loss ---
+  # bce              : Binary Cross Entropy — requires output_type: probs
+  # bce_with_logits  : BCE + sigmoid fused — requires output_type: logits (more stable)
+  loss_fn: bce
+
+  # --- Optimizer ---
+  # adam   : Adam
+  # adamw  : AdamW (decouples weight decay from gradient update — preferred with weight_decay > 0)
+  optimizer: adamw
+
+  weight_decay: 0.0               # L2 regularisation; try 1e-4 or 1e-2 with adamw
+
+  training_threshold: 0.5         # decision threshold for APCER/BPCER during training metrics
+
+  # Gradient accumulation — effective batch = batch_size × grad_accumulation_steps
+  # Use when GPU memory limits batch_size (e.g. batch=4, accum=4 → effective 16)
+  grad_accumulation_steps: 1
+
+  # far_threshold: 0.02           # optional — FAR threshold used by checkpoint selection
+
+
+# ---------------------------------------------------------------------------
+# LR SCHEDULER
+# ---------------------------------------------------------------------------
+scheduler:
+  warmup_epochs: 2                # linear LR warmup from 0 → learning_rate over N epochs; 0 = disabled
+
+  # decay_type options:
+  #   step     : multiply LR by gamma every step_size epochs  (StepLR)
+  #   cosine   : cosine anneal LR from initial down to eta_min  (CosineAnnealingLR)
+  #   plateau  : reduce LR by factor when val_loss stalls for patience epochs  (ReduceLROnPlateau)
+  #   null     : no decay (constant LR after warmup)
+  decay_type: plateau
+
+  # --- step decay ---
+  gamma: 0.1                      # LR multiplier on each step
+  step_size: 10                   # reduce every N epochs
+
+  # --- cosine decay ---
+  eta_min: 1.0e-07                # floor LR for cosine
+
+  # --- plateau decay ---
+  patience: 5                     # epochs without improvement before reducing LR
+  factor: 0.5                     # LR multiplier on plateau trigger
+  min_lr: 1.0e-07                 # floor LR for plateau
+  min_delta: 1.0e-04              # minimum val_loss change to count as improvement
+
+
+# ---------------------------------------------------------------------------
+# EARLY STOPPING
+# Monitors validation loss; stops training if no improvement for patience epochs.
+# ---------------------------------------------------------------------------
+early_stopping:
+  enabled: true
+  patience: 12                    # epochs without improvement before stopping
+  delta: 1.0e-07                  # minimum val_loss change to count as improvement
+  verbose: true
+
+
+# ---------------------------------------------------------------------------
+# DATA
+# CSVs must have columns:  path (abs path to image)  |  label (0=genuine, 1=attack)
+# Optional column for breakdown.py:  Recapture_Subclass
+# ---------------------------------------------------------------------------
+data:
+  train_csv: /mnt3/agent_data/Enhancement21v1_ori_train.csv
+  val_csv:   /mnt3/agent_data/val_dataset.csv    # used during training; if omitted falls back to eval_csv
+  eval_csv:  /mnt3/agent_data/eval_dataset.csv   # held-out set; used by evaluate.py + breakdown.py
+
+  image_type: ori                 # organisational tag, passed through to dataset loader
+  train_val_split: 0.9            # only used if val_csv is absent (90% train / 10% val)
+
+
+# ---------------------------------------------------------------------------
+# DATALOADER
+# ---------------------------------------------------------------------------
+dataloader:
+  num_workers: 4
+  prefetch_factor: 2
+  pin_memory: true
+  non_blocking: true
+  persistent_workers: true
+  drop_last: true                 # required when using BatchNorm layers
+
+
+# ---------------------------------------------------------------------------
+# TRANSFORMS
+# Applied to every image before it reaches the model.
+# ---------------------------------------------------------------------------
+transform:
+  image_size: 512                           # final square size fed to model
+
+  normalize_mean: [0.485, 0.456, 0.406]    # ImageNet RGB mean
+  normalize_std:  [0.229, 0.224, 0.225]    # ImageNet RGB std
+
+  # version options:
+  #   v1 : distortion-resize — stretch image to image_size × image_size (fast, distorts AR)
+  #   v2 : center-crop + resize + pad — crops largest center square, resizes, pads to target
+  #   v3 : letterbox — scale-to-fit with symmetric zero-padding (no distortion, no crop)
+  version: v1
+
+
+# ---------------------------------------------------------------------------
+# CHECKPOINTING
+# Saves epoch_{N}.pt after every epoch to {run_dir}/checkpoints/
+# Best checkpoint selected by model_selection.py after training ends.
+# ---------------------------------------------------------------------------
+checkpoint:
+  enabled: true

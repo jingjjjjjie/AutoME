@@ -1,0 +1,45 @@
+{
+  "experiment_id": "001_0630",
+  "parent_id": null,
+  "start_time": "2026-06-30T05:25:15Z",
+  "finish_time": "2026-06-30T05:32:17Z",
+  "status": "failed",
+  "artifacts": {
+    "config_ref": "runs/exp1/001_0630/config.yaml",
+    "experiment_dir": "/mnt3/repo_and_weights/agent/exp1/001_0630"
+  },
+  "cost": {
+    "wall_time_sec": 422,
+    "wall_time_min": 7.0,
+    "tokens_used": {
+      "prompt": 995061,
+      "completion": 7680,
+      "total": 1002741,
+      "cache_read": 857216
+    }
+  },
+  "metrics": {},
+  "analysis": {
+    "summary": "Training failed before completing epoch 1 because DataLoader workers exhausted shared memory.",
+    "findings": [
+      "The run created initial config and dataframe artifacts but produced no checkpoints or evaluation metrics.",
+      "The failure occurred at the first training batch with DataLoader worker bus errors.",
+      "The active dataloader settings were num_workers=24 and prefetch_factor=10, which are high shared-memory pressure for 512px batches."
+    ],
+    "hypothesis": "The baseline model/training settings remain untested; the failure is caused by dataloader shared-memory pressure rather than model quality.",
+    "beats_current_best": false,
+    "potential": "high",
+    "justification": "Reducing dataloader concurrency should allow the same baseline hypothesis to run without changing the model, loss, scheduler, or data."
+  },
+  "next_action": {
+    "type": "branch_experiment",
+    "reason": "Retry the baseline with lower dataloader shared-memory pressure after worker bus errors.",
+    "proposed_config": {
+      "base": "runs/exp1/001_0630/config.yaml",
+      "overrides": {
+        "dataloader.num_workers": 4,
+        "dataloader.prefetch_factor": 2
+      }
+    }
+  }
+}

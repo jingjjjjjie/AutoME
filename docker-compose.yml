@@ -1,6 +1,6 @@
 services:
-  autome:
-    build: .                    # see Dockerfile (pytorch base + jingjie user)
+  auto:
+    build: .                    # see Dockerfile 
     user: "1055:1055"           # non-root; matches host uid so scratch writes work
     network_mode: host
 
@@ -12,8 +12,9 @@ services:
       - no-new-privileges:true  # prevent setuid binaries from re-gaining privileges
 
     # resources
-    mem_limit: 2g               # hard memory cap
-    memswap_limit: 2g           # disables swap (swap = mem_limit means no extra swap)
+    # mem_limit: 2g               # hard memory cap
+    # memswap_limit: 2g           # disables swap (swap = mem_limit means no extra swap)
+    shm_size: "16gb"              # PyTorch DataLoader workers need shared memory for prefetched batches
     deploy:
       resources:
         reservations:
@@ -25,8 +26,21 @@ services:
     tmpfs:
       - /tmp                    # writable in-memory scratch (needed because root fs is read-only)
       # add /home/jingjie/.cache here when running real PyTorch/HuggingFace workloads
-    volumes:
-      - ./datasets:/data:ro     # dataset is read-only inside the container
-      - ./scratch:/scratch:rw   # only intentional output landing zone
+    working_dir: /home/jingjie/Dev/AutoME
 
-    command: sleep infinity     # keeps container alive; use `docker compose exec autome bash`
+    volumes:
+      - /mnt3/repo_and_weights/weights:/mnt3/repo_and_weights/weights:ro
+      - /mnt3/repo_and_weights/repo:/mnt3/repo_and_weights/repo:ro
+      - /mnt3/repo_and_weights/agent:/mnt3/repo_and_weights/agent:rw
+      - /mnt4/auto-ekyc/idrecapture/datasets:/mnt4/auto-ekyc/idrecapture/datasets:ro
+      - /routine_data:/routine_data:ro
+      - /mnt3/agent_data:/mnt3/agent_data:ro
+      - /home/jingjie/Dev/AutoTorch:/home/jingjie/Dev/AutoTorch:ro
+      - /home/jingjie/Dev/AutoME:/home/jingjie/Dev/AutoME:rw   # agent reads/writes runs/ and configs
+      - /home/jingjie/.codex:/home/jingjie/.codex:rw           # session logs for step 10 token tracking
+
+    environment:
+      - RUNS_DIR=/mnt3/repo_and_weights/agent
+      # OPENAI_API_KEY not needed — Codex uses ~/.codex login session
+
+    command: sleep infinity     # keeps container alive; use `docker compose exec auto bash`
